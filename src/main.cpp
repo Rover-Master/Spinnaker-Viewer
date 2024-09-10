@@ -32,6 +32,7 @@ void configure(CameraPtr camera) {
   } catch (Spinnaker::Exception &e) {
     cout << "Error Configuring Camera Stream: " << e.what() << endl;
   }
+
 }
 
 // This function acquires and saves 10 images from a device.
