@@ -7,38 +7,52 @@
 
 #pragma once
 
-#include "CameraPtr.h"
 #include <memory>
 #include <thread>
 
-#include <opencv2/opencv.hpp>
-#include <sensor_msgs/Image.h>
+#include <opencv2/core.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <std_msgs/msg/float64.hpp>
 
 #include <spinnaker/spinnaker.h>
 #include <threading/leaky.h>
 
-using ImageMsg = sensor_msgs::msg::Image;
+using Node = rclcpp::Node;
+using ImgMsg = sensor_msgs::msg::Image;
+using F64Msg = std_msgs::msg::Float64;
 
-class CaptureThread : public std::thread {
+typedef struct {
+  cv::Mat frame;
+  rclcpp::Time stamp;
+} MatStamped;
+
+class Capture {
 private:
-  bool flag_term = false;
-  void config();
   void entry();
   void loop();
   Spinnaker::CameraPtr camera;
   Spinnaker::ImageProcessor processor;
 
+  bool flag_term = false;
+  std::unique_ptr<std::thread> thread;
+
 public:
-  unsigned int id;
-  threading::LeakyIO<cv::Mat> pipe;
+  struct {
+    rclcpp::Publisher<ImgMsg>::SharedPtr img;
+    rclcpp::Publisher<F64Msg>::SharedPtr fps, gain, exposure;
+  } msg;
+
+public:
+  threading::LeakyIO<MatStamped> pipe;
   double fps = 0.0;
   double gain = 0.0;
   double exposure = 0.0;
   // For main thread use only
-  std::shared_ptr<cv::Mat> frame;
+  std::shared_ptr<const MatStamped> frame;
   // Constructor and destructor
-  CaptureThread(unsigned int id, Spinnaker::CameraPtr &camera);
-  ~CaptureThread();
+  Capture(unsigned int id, Spinnaker::CameraPtr camera, Node::SharedPtr node);
+  ~Capture();
 };
 
-std::vector<CaptureThread> capture_all();
+using CapList = std::vector<std::unique_ptr<Capture>>;

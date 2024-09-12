@@ -1,53 +1,58 @@
-#include "threading/exception.h"
+#include "spinnaker/spinnaker.h"
 #include <common.h>
-#include <spinnaker/spinnaker.h>
-#include <vector>
 
+using namespace std;
 using namespace Spinnaker;
 
-CaptureThread::CaptureThread(unsigned int id, Spinnaker::CameraPtr &camera)
-    : std::thread(&CaptureThread::entry, this), camera(camera), id(id) {}
+Capture::Capture(unsigned int id, CameraPtr camera, Node::SharedPtr node)
+    : camera(camera) {
+  cout << "Camera constructing" << endl;
+  string topic = "camera_" + to_string(id);
+  msg.img = node->create_publisher<ImgMsg>(topic + "/img", 10);
+  msg.fps = node->create_publisher<F64Msg>(topic + "/fps", 10);
+  msg.gain = node->create_publisher<F64Msg>(topic + "/gain", 10);
+  msg.exposure = node->create_publisher<F64Msg>(topic + "/exposure", 10);
+  cout << "Starting capture thread" << endl;
+  thread = make_unique<std::thread>(&Capture::entry, this);
+  RCLCPP_INFO(node->get_logger(), "Camera %u started", id);
+}
 
-CaptureThread::~CaptureThread() {
+Capture::~Capture() {
   flag_term = true;
-  join();
+  if (thread && thread->joinable())
+    thread->join();
 }
 
-CaptureThread::config() {
+void Capture::entry() {
+  cout << "Capture thread started" << endl;
+  camera->Init();
+  cout << "Camera initialized" << endl;
   try {
-    Spinnaker::ConfigurableMap config(camera->GetNodeMap());
-    config.set<string>("AcquisitionMode", "Continuous");
-    config.set<string>("ExposureAuto", "Continuous");
-    // config.set<double>("ExposureTime", 10.0 * 1000.0);
-    config.set<bool>("AcquisitionFrameRateEnable", true);
-    config.set<double>("AcquisitionFrameRate", 24.0);
-    config.set<string>("GainAuto", "Continuous");
-    // Print Acquisition Configurations
-    cout << config.list("AcquisitionMode").join() << endl
-         << config.list("ExposureAuto").join() << endl
-         << config.info<double>("ExposureTime") << endl
-         << config.info<bool>("AcquisitionFrameRateEnable") << endl
-         << config.info<double>("AcquisitionFrameRate") << endl
-         << config.list("GainAuto").join() << endl;
-  } catch (Spinnaker::Exception &e) {
+    ConfigurableMap map(camera->GetNodeMap());
+    map.set<string>("AcquisitionMode", "Continuous");
+    map.set<string>("ExposureAuto", "Continuous");
+    // map.set<double>("ExposureTime", 10.0 * 1000.0);
+    map.set<bool>("AcquisitionFrameRateEnable", true);
+    map.set<double>("AcquisitionFrameRate", 24.0);
+    map.set<string>("GainAuto", "Continuous");
+  } catch (Exception &e) {
     cout << "Error Configuring Camera: " << e.what() << endl;
+  } catch (...) {
+    cout << "Error Configuring Camera: [Unknown]" << endl;
   }
-}
-
-void CaptureThread::entry() {
-  camera->init();
-  config();
-  camera->StartAcquisition();
+  cout << "Camera config complete" << endl;
+  camera->BeginAcquisition();
   processor.SetColorProcessing(SPINNAKER_COLOR_PROCESSING_ALGORITHM_HQ_LINEAR);
+  cout << "Entering capture loop" << endl;
   try {
     while (!flag_term)
       loop();
   }
   EXPECT_END_OF_STREAM
-  catch (Spinnaker::Exception &e) {
+  catch (Exception &e) {
     cerr << "Spinnaker Error: " << e.what() << endl;
   }
-  catch (std::exception &e) {
+  catch (exception &e) {
     cerr << "Error: " << e.what() << endl;
   }
   catch (...) {
@@ -57,14 +62,22 @@ void CaptureThread::entry() {
   camera->DeInit();
 }
 
-CaptureThread::loop() {
+void Capture::loop() {
   try {
+    ConfigurableMap map(camera->GetNodeMap());
+    fps = map.get<double>("AcquisitionFrameRate");
+    gain = map.get<double>("Gain");
+    exposure = map.get<double>("ExposureTime");
     ImagePtr pResultImage = camera->GetNextImage(100);
     if (pResultImage->IsIncomplete()) {
       cerr << "Image incomplete: "
            << Image::GetImageStatusDescription(pResultImage->GetImageStatus())
            << endl;
     } else {
+      const auto stamp = chrono::system_clock::now();
+      const auto nanos =
+          chrono::duration_cast<chrono::nanoseconds>(stamp.time_since_epoch())
+              .count();
       const size_t width = pResultImage->GetWidth(),
                    height = pResultImage->GetHeight();
       ImagePtr convertedImage =
@@ -72,37 +85,10 @@ CaptureThread::loop() {
       // Display image using OpenCV
       cv::Mat img = cv::Mat(height, width, CV_8UC3, convertedImage->GetData(),
                             cv::Mat::AUTO_STEP);
-      pipe.write(std::move(img.clone()))
+      pipe.write(MatStamped{std::move(img.clone()), rclcpp::Time(nanos)});
     }
     pResultImage->Release();
-  } catch (Spinnaker::Exception &e) {
+  } catch (Exception &e) {
     cout << "Error: " << e.what() << endl;
   }
 }
-
-SystemPtr system = System::GetInstance();
-void sys_release() { system->ReleaseInstance(); }
-
-std::vector<CaptureThread> &capture_all() {
-  atexit(sys_release);
-  auto ret = new std::vector<CaptureThread>();
-  CameraList camList = system->GetCameras();
-  const unsigned int numCameras = camList.GetSize();
-  // Finish if there are no cameras
-  if (numCameras == 0)
-    cerr << "No Spinnaker Camera found on this system...." << endl;
-  // Acquire image from each camera
-  for (unsigned int i = 0; i < numCameras; i++) {
-    try {
-      ret.push_back(CaptureThread(i, std::move(camList.GetByIndex(i))));
-    } catch (Spinnaker::Exception &e) {
-      cerr << "Error: " << e.what() << endl;
-    } catch (std::exception &e) {
-      cerr << "Error: " << e.what() << endl;
-    } catch (...) {
-      cerr << "Error: Unknown" << endl;
-    }
-  }
-  camList.Clear();
-  return *ret;
-};
