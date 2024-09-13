@@ -32,7 +32,7 @@ int main(int argc, char *const argv[]) {
         std::cerr << "Unknown Error" << std::endl;
       }
     }
-    std::cout << "All capture caps initialized" << std::endl;
+    std::cout << "All capture threads initialized" << std::endl;
     while (rclcpp::ok())
       for (auto &cap : caps) {
         rclcpp::spin_some(node);
