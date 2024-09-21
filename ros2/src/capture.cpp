@@ -33,7 +33,7 @@ void Capture::entry() {
     map.set<string>("ExposureAuto", "Continuous");
     // map.set<double>("ExposureTime", 10.0 * 1000.0);
     map.set<bool>("AcquisitionFrameRateEnable", true);
-    map.set<double>("AcquisitionFrameRate", 24.0);
+    map.set<double>("AcquisitionFrameRate", 20.0);
     map.set<string>("GainAuto", "Continuous");
   } catch (Exception &e) {
     cout << "Error Configuring Camera: " << e.what() << endl;
