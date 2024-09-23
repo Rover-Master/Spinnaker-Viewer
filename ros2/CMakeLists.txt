@@ -22,8 +22,8 @@ foreach(DEP IN ITEMS ${ROS2DEPS})
 endforeach()
 
 # Compile to binary
-add_executable(${PROJECT_NAME} ${SRCS} ${LIB_SRCS} ${ASSETS})
-ament_target_dependencies(${PROJECT_NAME} ${ROS2DEPS})
-install(TARGETS ${PROJECT_NAME} DESTINATION lib/${PROJECT_NAME})
+add_executable(capture ${SRCS} ${LIB_SRCS} ${ASSETS})
+ament_target_dependencies(capture ${ROS2DEPS})
+install(TARGETS capture DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
