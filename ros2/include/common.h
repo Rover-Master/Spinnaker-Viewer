@@ -40,7 +40,7 @@ private:
 public:
   struct {
     rclcpp::Publisher<ImgMsg>::SharedPtr img;
-    rclcpp::Publisher<F64Msg>::SharedPtr fps, gain, exposure;
+    rclcpp::Publisher<F64Msg>::SharedPtr fps, gain, exposure, delay;
   } msg;
 
 public:

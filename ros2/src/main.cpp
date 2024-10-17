@@ -33,26 +33,31 @@ int main(int argc, char *const argv[]) {
       }
     }
     std::cout << "All capture threads initialized" << std::endl;
-    while (rclcpp::ok())
+    while (rclcpp::ok()) {
+      rclcpp::spin_some(node);
       for (auto &cap : caps) {
-        rclcpp::spin_some(node);
         if (!cap->pipe.next(cap->frame))
           continue;
+        if (!rclcpp::ok())
+          break;
         auto header = std_msgs::msg::Header();
         header.stamp = cap->frame->stamp;
-        auto img =
-            cv_bridge::CvImage(header, "bgr8", cap->frame->frame).toImageMsg();
-        cap->msg.img->publish(*img);
-        F64Msg msg;
+        cv_bridge::CvImage img(header, "bgr8", cap->frame->frame);
+        cap->msg.img->publish(*img.toImageMsg());
+        // Calculate delay since image grabbed
+        static F64Msg msg;
         msg.data = cap->fps;
         cap->msg.fps->publish(msg);
         msg.data = cap->gain;
         cap->msg.gain->publish(msg);
         msg.data = cap->exposure;
         cap->msg.exposure->publish(msg);
+        msg.data =
+            (rclcpp::Clock().now() - cap->frame->stamp).seconds() * 1000.0;
+        cap->msg.delay->publish(msg);
       }
-    std::cout << "Shutting down..." << std::endl;
-    rclcpp::shutdown();
+    }
+    std::cout << "Terminating ..." << std::endl;
     caps.clear();
     camList.Clear();
     spinnaker->ReleaseInstance();

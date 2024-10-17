@@ -12,6 +12,7 @@ Capture::Capture(unsigned int id, CameraPtr camera, Node::SharedPtr node)
   msg.fps = node->create_publisher<F64Msg>(topic + "/fps", 10);
   msg.gain = node->create_publisher<F64Msg>(topic + "/gain", 10);
   msg.exposure = node->create_publisher<F64Msg>(topic + "/exposure", 10);
+  msg.delay = node->create_publisher<F64Msg>(topic + "/delay", 10);
   cout << "Starting capture thread" << endl;
   thread = make_unique<std::thread>(&Capture::entry, this);
   RCLCPP_INFO(node->get_logger(), "Camera %u started", id);
@@ -68,24 +69,20 @@ void Capture::loop() {
     fps = map.get<double>("AcquisitionFrameRate");
     gain = map.get<double>("Gain");
     exposure = map.get<double>("ExposureTime");
-    ImagePtr pResultImage = camera->GetNextImage(100);
+    ImagePtr pResultImage = camera->GetNextImage(1000);
+    auto stamp = rclcpp::Clock().now();
     if (pResultImage->IsIncomplete()) {
       cerr << "Image incomplete: "
            << Image::GetImageStatusDescription(pResultImage->GetImageStatus())
            << endl;
     } else {
-      const auto stamp = chrono::system_clock::now();
-      const auto nanos =
-          chrono::duration_cast<chrono::nanoseconds>(stamp.time_since_epoch())
-              .count();
       const size_t width = pResultImage->GetWidth(),
                    height = pResultImage->GetHeight();
       ImagePtr convertedImage =
           processor.Convert(pResultImage, PixelFormat_BGR8);
-      // Display image using OpenCV
       cv::Mat img = cv::Mat(height, width, CV_8UC3, convertedImage->GetData(),
                             cv::Mat::AUTO_STEP);
-      pipe.write(MatStamped{std::move(img.clone()), rclcpp::Time(nanos)});
+      pipe.write(MatStamped{std::move(img.clone()), stamp});
     }
     pResultImage->Release();
   } catch (Exception &e) {
