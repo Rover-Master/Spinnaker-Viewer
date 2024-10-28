@@ -96,10 +96,10 @@ int main(int argc, char *const argv[]) {
     try {
       auto camera = camList.GetByIndex(i);
       cout << endl << ">>>>>>>> Querying camera [" << i << "] <<<<<<<<" << endl;
-      cout << " ========== Device Info ==========" << endl;
+      cout << "========== Device Info ==========" << endl;
       DeviceInfo info(camera);
       cout << info.format(": ").join() << endl;
-      cout << " ========== Device Conf ==========" << endl;
+      cout << "========== Device Conf ==========" << endl;
       camera->Init();
       list_config(camera);
       camera->DeInit();

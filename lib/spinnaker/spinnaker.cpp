@@ -69,13 +69,13 @@ DeviceInfo::DeviceInfo(Spinnaker::CameraPtr &camera)
       for (auto feature = features.begin(); feature != features.end();
            ++feature) {
         const Spinnaker::GenApi::CNodePtr pfeatureNode = *feature;
-        auto name = pfeatureNode->GetName().c_str();
+        auto name = pfeatureNode->GetName();
         Spinnaker::GenApi::CValuePtr pValue =
             static_cast<Spinnaker::GenApi::CValuePtr>(pfeatureNode);
         const auto readable = IsReadable(pValue);
-        auto value = (readable ? pValue->ToString() : "N/A").c_str();
-        if ((*name) || readable)
-          push_back({name, value});
+        auto value = (readable ? pValue->ToString() : "N/A");
+        if ((*name.c_str()) || readable)
+          push_back({name.c_str(), value.c_str()});
       }
     } else {
       push_back({"ERROR", "DeviceInformation node not readable"});

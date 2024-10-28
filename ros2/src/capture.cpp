@@ -31,12 +31,20 @@ void Capture::entry() {
   try {
     ConfigurableMap map(camera->GetNodeMap());
     map.set<string>("AcquisitionMode", "Continuous");
-    map.set<string>("ExposureAuto", "Continuous");
-    // map.set<double>("ExposureTime", 10.0 * 1000.0);
-    map.set<bool>("AcquisitionFrameRateEnable", true);
-    map.set<double>("AcquisitionFrameRate", 20.0);
-    map.set<string>("GainAuto", "Off");
-    map.set<double>("Gain", 20.0);
+    map.set<string>("ExposureAuto", "Off");
+    map.set<double>("ExposureTime", 30.0 * 1000.0); // 30FPS
+    map.set<bool>("AcquisitionFrameRateEnable", false);
+    // map.set<double>("AcquisitionFrameRate", 20.0);
+    map.set<string>("GainAuto", "Continuous");
+    // map.set<double>("Gain", 20.0);
+  } catch (Exception &e) {
+    cout << "Error Configuring Camera: " << e.what() << endl;
+  } catch (...) {
+    cout << "Error Configuring Camera: [Unknown]" << endl;
+  }
+  try {
+    ConfigurableMap map(camera->GetTLStreamNodeMap());
+    map.set<string>("StreamBufferHandlingMode", "NewestOnly");
   } catch (Exception &e) {
     cout << "Error Configuring Camera: " << e.what() << endl;
   } catch (...) {

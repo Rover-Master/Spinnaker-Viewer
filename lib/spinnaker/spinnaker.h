@@ -32,10 +32,8 @@ using namespace std;
 
 class Lines : public vector<string> {
 public:
-  template <typename T> Lines &operator<<(const T &t) {
-    stringstream ss;
-    ss << t;
-    push_back(ss.str());
+  inline Lines &operator<<(const string str) {
+    push_back(str);
     return *this;
   }
   string join(const string &delim = "\n");
@@ -69,7 +67,7 @@ public:
   template <typename T> string info(const char *key) {
     stringstream ss;
     ss << key << ": " << get<T>(key);
-    return ss.str();
+    return string(ss.str());
   };
 };
 
